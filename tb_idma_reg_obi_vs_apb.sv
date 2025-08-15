@@ -5,6 +5,9 @@
 // Testbench to verify OBI vs APB register block implementations
 // Uses OBI interface properly with a subordinate driver
 
+// Authors:
+// - Daniel Keller <dankeller@ethz.ch>
+
 `timescale 1ns/1ps
 
 // Include APB package first
