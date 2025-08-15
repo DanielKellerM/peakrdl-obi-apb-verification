@@ -70,8 +70,8 @@ The requirements include:
 ### 1. Clone Repository with Submodules
 ```bash
 # Clone the repository with all submodules
-git clone --recursive https://github.com/danielkellerm/systemrdl.git
-cd systemrdl
+git clone --recursive https://github.com/danielkellerm/peakrdl-obi-apb-verification.git
+cd peakrdl-obi-apb-verification
 
 # Or if you already cloned without --recursive, initialize submodules
 git submodule update --init --recursive
@@ -160,4 +160,9 @@ git submodule update --init --recursive
 
 ## Related Projects
 
+- [PeakRDL-regblock](https://github.com/DanielKellerM/PeakRDL-regblock): Register block generator with OBI
+support
 - [PeakRDL](https://github.com/SystemRDL/PeakRDL): SystemRDL parser and processing tools
+- [common_cells](https://github.com/pulp-platform/common_cells): Common SystemVerilog utilities
+- [apb](https://github.com/pulp-platform/apb): APB protocol implementation
+- [obi](https://github.com/pulp-platform/obi): OBI protocol implementation
