@@ -3,7 +3,7 @@
 
 module idma_reg_obi (
         input wire clk,
-        input wire rst,
+        input wire arst_n,
 
         input wire obi_req,
         input wire [7:0] obi_addr,
@@ -45,8 +45,8 @@ module idma_reg_obi (
 
     // OBI to CPUIF conversion logic
     logic is_active;
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             is_active <= '0;
             cpuif_req <= '0;
             cpuif_req_is_wr <= '0;
@@ -103,8 +103,8 @@ module idma_reg_obi (
     logic external_pending;
     logic external_wr_ack;
     logic external_rd_ack;
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             external_pending <= '0;
         end else begin
             if(external_req & ~external_wr_ack & ~external_rd_ack) external_pending <= '1;
@@ -157,15 +157,15 @@ module idma_reg_obi (
         decoded_reg_strb.conf = cpuif_req_masked & (cpuif_addr == 8'h0);
         for(int i0=0; i0<16; i0++) begin
             decoded_reg_strb.status[i0] = cpuif_req_masked & (cpuif_addr == 8'h4 + (8)'(i0) * 8'h4);
-            is_external |= cpuif_req_masked & (cpuif_addr == 8'h4 + (8)'(i0) * 8'h4) & !cpuif_req_is_wr;
+            is_external |= cpuif_req_masked & (cpuif_addr == 8'h4 + (8)'(i0) * 8'h4);
         end
         for(int i0=0; i0<16; i0++) begin
             decoded_reg_strb.next_id[i0] = cpuif_req_masked & (cpuif_addr == 8'h44 + (8)'(i0) * 8'h4);
-            is_external |= cpuif_req_masked & (cpuif_addr == 8'h44 + (8)'(i0) * 8'h4) & !cpuif_req_is_wr;
+            is_external |= cpuif_req_masked & (cpuif_addr == 8'h44 + (8)'(i0) * 8'h4);
         end
         for(int i0=0; i0<16; i0++) begin
             decoded_reg_strb.done_id[i0] = cpuif_req_masked & (cpuif_addr == 8'h84 + (8)'(i0) * 8'h4);
-            is_external |= cpuif_req_masked & (cpuif_addr == 8'h84 + (8)'(i0) * 8'h4) & !cpuif_req_is_wr;
+            is_external |= cpuif_req_masked & (cpuif_addr == 8'h84 + (8)'(i0) * 8'h4);
         end
         for(int i0=0; i0<1; i0++) begin
             decoded_reg_strb.dst_addr[i0] = cpuif_req_masked & (cpuif_addr == 8'hd0 + (8)'(i0) * 8'h4);
@@ -354,12 +354,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.decouple_aw.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.decouple_aw.next;
+            load_next_c = '1;
         end
         field_combo.conf.decouple_aw.next = next_c;
         field_combo.conf.decouple_aw.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.decouple_aw.value <= 1'h0;
         end else begin
             if(field_combo.conf.decouple_aw.load_next) begin
@@ -377,12 +380,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.decouple_rw.value & ~decoded_wr_biten[1:1]) | (decoded_wr_data[1:1] & decoded_wr_biten[1:1]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.decouple_rw.next;
+            load_next_c = '1;
         end
         field_combo.conf.decouple_rw.next = next_c;
         field_combo.conf.decouple_rw.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.decouple_rw.value <= 1'h0;
         end else begin
             if(field_combo.conf.decouple_rw.load_next) begin
@@ -400,12 +406,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.src_reduce_len.value & ~decoded_wr_biten[2:2]) | (decoded_wr_data[2:2] & decoded_wr_biten[2:2]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.src_reduce_len.next;
+            load_next_c = '1;
         end
         field_combo.conf.src_reduce_len.next = next_c;
         field_combo.conf.src_reduce_len.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.src_reduce_len.value <= 1'h0;
         end else begin
             if(field_combo.conf.src_reduce_len.load_next) begin
@@ -423,12 +432,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.dst_reduce_len.value & ~decoded_wr_biten[3:3]) | (decoded_wr_data[3:3] & decoded_wr_biten[3:3]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.dst_reduce_len.next;
+            load_next_c = '1;
         end
         field_combo.conf.dst_reduce_len.next = next_c;
         field_combo.conf.dst_reduce_len.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.dst_reduce_len.value <= 1'h0;
         end else begin
             if(field_combo.conf.dst_reduce_len.load_next) begin
@@ -446,12 +458,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.src_max_llen.value & ~decoded_wr_biten[6:4]) | (decoded_wr_data[6:4] & decoded_wr_biten[6:4]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.src_max_llen.next;
+            load_next_c = '1;
         end
         field_combo.conf.src_max_llen.next = next_c;
         field_combo.conf.src_max_llen.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.src_max_llen.value <= 3'h0;
         end else begin
             if(field_combo.conf.src_max_llen.load_next) begin
@@ -469,12 +484,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.dst_max_llen.value & ~decoded_wr_biten[9:7]) | (decoded_wr_data[9:7] & decoded_wr_biten[9:7]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.dst_max_llen.next;
+            load_next_c = '1;
         end
         field_combo.conf.dst_max_llen.next = next_c;
         field_combo.conf.dst_max_llen.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.dst_max_llen.value <= 3'h0;
         end else begin
             if(field_combo.conf.dst_max_llen.load_next) begin
@@ -492,12 +510,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.enable_nd.value & ~decoded_wr_biten[10:10]) | (decoded_wr_data[10:10] & decoded_wr_biten[10:10]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.enable_nd.next;
+            load_next_c = '1;
         end
         field_combo.conf.enable_nd.next = next_c;
         field_combo.conf.enable_nd.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.enable_nd.value <= 1'h0;
         end else begin
             if(field_combo.conf.enable_nd.load_next) begin
@@ -515,12 +536,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.src_protocol.value & ~decoded_wr_biten[13:11]) | (decoded_wr_data[13:11] & decoded_wr_biten[13:11]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.src_protocol.next;
+            load_next_c = '1;
         end
         field_combo.conf.src_protocol.next = next_c;
         field_combo.conf.src_protocol.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.src_protocol.value <= 3'h0;
         end else begin
             if(field_combo.conf.src_protocol.load_next) begin
@@ -538,12 +562,15 @@ module idma_reg_obi (
         if(decoded_reg_strb.conf && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.conf.dst_protocol.value & ~decoded_wr_biten[16:14]) | (decoded_wr_data[16:14] & decoded_wr_biten[16:14]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.conf.dst_protocol.next;
+            load_next_c = '1;
         end
         field_combo.conf.dst_protocol.next = next_c;
         field_combo.conf.dst_protocol.load_next = load_next_c;
     end
-    always_ff @(posedge clk) begin
-        if(rst) begin
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
             field_storage.conf.dst_protocol.value <= 3'h0;
         end else begin
             if(field_combo.conf.dst_protocol.load_next) begin
@@ -554,18 +581,24 @@ module idma_reg_obi (
     assign hwif_out.conf.dst_protocol.value = field_storage.conf.dst_protocol.value;
     for(genvar i0=0; i0<16; i0++) begin
 
-        assign hwif_out.status[i0].req = !decoded_req_is_wr ? decoded_reg_strb.status[i0] : '0;
+        assign hwif_out.status[i0].req = decoded_reg_strb.status[i0];
         assign hwif_out.status[i0].req_is_wr = decoded_req_is_wr;
+        assign hwif_out.status[i0].wr_data = decoded_wr_data;
+        assign hwif_out.status[i0].wr_biten = decoded_wr_biten;
     end
     for(genvar i0=0; i0<16; i0++) begin
 
-        assign hwif_out.next_id[i0].req = !decoded_req_is_wr ? decoded_reg_strb.next_id[i0] : '0;
+        assign hwif_out.next_id[i0].req = decoded_reg_strb.next_id[i0];
         assign hwif_out.next_id[i0].req_is_wr = decoded_req_is_wr;
+        assign hwif_out.next_id[i0].wr_data = decoded_wr_data;
+        assign hwif_out.next_id[i0].wr_biten = decoded_wr_biten;
     end
     for(genvar i0=0; i0<16; i0++) begin
 
-        assign hwif_out.done_id[i0].req = !decoded_req_is_wr ? decoded_reg_strb.done_id[i0] : '0;
+        assign hwif_out.done_id[i0].req = decoded_reg_strb.done_id[i0];
         assign hwif_out.done_id[i0].req_is_wr = decoded_req_is_wr;
+        assign hwif_out.done_id[i0].wr_data = decoded_wr_data;
+        assign hwif_out.done_id[i0].wr_biten = decoded_wr_biten;
     end
     for(genvar i0=0; i0<1; i0++) begin
         // Field: idma_reg.dst_addr[].dst_addr
@@ -577,12 +610,15 @@ module idma_reg_obi (
             if(decoded_reg_strb.dst_addr[i0] && decoded_req_is_wr) begin // SW write
                 next_c = (field_storage.dst_addr[i0].dst_addr.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                 load_next_c = '1;
+            end else begin // HW Write
+                next_c = hwif_in.dst_addr[i0].dst_addr.next;
+                load_next_c = '1;
             end
             field_combo.dst_addr[i0].dst_addr.next = next_c;
             field_combo.dst_addr[i0].dst_addr.load_next = load_next_c;
         end
-        always_ff @(posedge clk) begin
-            if(rst) begin
+        always_ff @(posedge clk or negedge arst_n) begin
+            if(~arst_n) begin
                 field_storage.dst_addr[i0].dst_addr.value <= 32'h0;
             end else begin
                 if(field_combo.dst_addr[i0].dst_addr.load_next) begin
@@ -602,12 +638,15 @@ module idma_reg_obi (
             if(decoded_reg_strb.src_addr[i0] && decoded_req_is_wr) begin // SW write
                 next_c = (field_storage.src_addr[i0].src_addr.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                 load_next_c = '1;
+            end else begin // HW Write
+                next_c = hwif_in.src_addr[i0].src_addr.next;
+                load_next_c = '1;
             end
             field_combo.src_addr[i0].src_addr.next = next_c;
             field_combo.src_addr[i0].src_addr.load_next = load_next_c;
         end
-        always_ff @(posedge clk) begin
-            if(rst) begin
+        always_ff @(posedge clk or negedge arst_n) begin
+            if(~arst_n) begin
                 field_storage.src_addr[i0].src_addr.value <= 32'h0;
             end else begin
                 if(field_combo.src_addr[i0].src_addr.load_next) begin
@@ -627,12 +666,15 @@ module idma_reg_obi (
             if(decoded_reg_strb.length[i0] && decoded_req_is_wr) begin // SW write
                 next_c = (field_storage.length[i0].length.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                 load_next_c = '1;
+            end else begin // HW Write
+                next_c = hwif_in.length[i0].length.next;
+                load_next_c = '1;
             end
             field_combo.length[i0].length.next = next_c;
             field_combo.length[i0].length.load_next = load_next_c;
         end
-        always_ff @(posedge clk) begin
-            if(rst) begin
+        always_ff @(posedge clk or negedge arst_n) begin
+            if(~arst_n) begin
                 field_storage.length[i0].length.value <= 32'h0;
             end else begin
                 if(field_combo.length[i0].length.load_next) begin
@@ -653,12 +695,15 @@ module idma_reg_obi (
                 if(decoded_reg_strb.dim[i0].dst_stride[i1] && decoded_req_is_wr) begin // SW write
                     next_c = (field_storage.dim[i0].dst_stride[i1].dst_stride.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                     load_next_c = '1;
+                end else begin // HW Write
+                    next_c = hwif_in.dim[i0].dst_stride[i1].dst_stride.next;
+                    load_next_c = '1;
                 end
                 field_combo.dim[i0].dst_stride[i1].dst_stride.next = next_c;
                 field_combo.dim[i0].dst_stride[i1].dst_stride.load_next = load_next_c;
             end
-            always_ff @(posedge clk) begin
-                if(rst) begin
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
                     field_storage.dim[i0].dst_stride[i1].dst_stride.value <= 32'h0;
                 end else begin
                     if(field_combo.dim[i0].dst_stride[i1].dst_stride.load_next) begin
@@ -678,12 +723,15 @@ module idma_reg_obi (
                 if(decoded_reg_strb.dim[i0].src_stride[i1] && decoded_req_is_wr) begin // SW write
                     next_c = (field_storage.dim[i0].src_stride[i1].src_stride.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                     load_next_c = '1;
+                end else begin // HW Write
+                    next_c = hwif_in.dim[i0].src_stride[i1].src_stride.next;
+                    load_next_c = '1;
                 end
                 field_combo.dim[i0].src_stride[i1].src_stride.next = next_c;
                 field_combo.dim[i0].src_stride[i1].src_stride.load_next = load_next_c;
             end
-            always_ff @(posedge clk) begin
-                if(rst) begin
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
                     field_storage.dim[i0].src_stride[i1].src_stride.value <= 32'h0;
                 end else begin
                     if(field_combo.dim[i0].src_stride[i1].src_stride.load_next) begin
@@ -703,12 +751,15 @@ module idma_reg_obi (
                 if(decoded_reg_strb.dim[i0].reps[i1] && decoded_req_is_wr) begin // SW write
                     next_c = (field_storage.dim[i0].reps[i1].reps.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
                     load_next_c = '1;
+                end else begin // HW Write
+                    next_c = hwif_in.dim[i0].reps[i1].reps.next;
+                    load_next_c = '1;
                 end
                 field_combo.dim[i0].reps[i1].reps.next = next_c;
                 field_combo.dim[i0].reps[i1].reps.load_next = load_next_c;
             end
-            always_ff @(posedge clk) begin
-                if(rst) begin
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
                     field_storage.dim[i0].reps[i1].reps.value <= 32'h0;
                 end else begin
                     if(field_combo.dim[i0].reps[i1].reps.load_next) begin
@@ -726,7 +777,15 @@ module idma_reg_obi (
     always_comb begin
         automatic logic wr_ack;
         wr_ack = '0;
-        
+        for(int i0=0; i0<16; i0++) begin
+            wr_ack |= hwif_in.status[i0].wr_ack;
+        end
+        for(int i0=0; i0<16; i0++) begin
+            wr_ack |= hwif_in.next_id[i0].wr_ack;
+        end
+        for(int i0=0; i0<16; i0++) begin
+            wr_ack |= hwif_in.done_id[i0].wr_ack;
+        end
         external_wr_ack = wr_ack;
     end
     assign cpuif_wr_ack = external_wr_ack | (decoded_req & decoded_req_is_wr & ~decoded_strb_is_external);

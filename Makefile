@@ -7,6 +7,8 @@ VOPT = vopt
 
 # Source files for OBI vs APB comparison test
 SOURCES = common_cells/src/cf_math_pkg.sv \
+		apb/src/apb_pkg.sv \
+		apb/include/apb/typedef.svh \
 		obi/include/obi/typedef.svh \
 		obi/src/obi_pkg.sv \
 		obi/src/obi_intf.sv \
@@ -14,6 +16,7 @@ SOURCES = common_cells/src/cf_math_pkg.sv \
 		regblock/idma_reg_obi.sv \
 		regblock/idma_reg_apb_pkg.sv \
 		regblock/idma_reg_apb.sv \
+		obi_to_apb.sv \
 		tb_idma_reg_obi_vs_apb.sv
 
 # Testbench modules
@@ -23,8 +26,8 @@ TB_MODULE_OBI_VS_APB = tb_idma_reg_obi_vs_apb
 generate-regblocks:
 	@echo "Generating register blocks..."
 	@if command -v peakrdl >/dev/null 2>&1; then \
-		peakrdl regblock idma_reg.rdl --module-name idma_reg_obi -o regblock/ --cpuif obi-flat; \
-		peakrdl regblock idma_reg.rdl --module-name idma_reg_apb -o regblock/ --cpuif apb4-flat; \
+		peakrdl regblock idma_reg.rdl --module-name idma_reg_obi -o regblock/ --default-reset arst_n --cpuif obi-flat; \
+		peakrdl regblock idma_reg.rdl --module-name idma_reg_apb -o regblock/ --default-reset arst_n --cpuif apb4-flat; \
 	else \
 		echo "Warning: peakrdl not found. Please ensure register blocks are already generated."; \
 	fi

@@ -11,6 +11,54 @@ package idma_reg_apb_pkg;
     localparam Log2NumDims = 'h0;
     localparam NumProtBits = 'h3;
 
+    typedef struct {
+        logic next;
+    } idma_reg__conf__decouple_aw__in_t;
+
+    typedef struct {
+        logic next;
+    } idma_reg__conf__decouple_rw__in_t;
+
+    typedef struct {
+        logic next;
+    } idma_reg__conf__src_reduce_len__in_t;
+
+    typedef struct {
+        logic next;
+    } idma_reg__conf__dst_reduce_len__in_t;
+
+    typedef struct {
+        logic [2:0] next;
+    } idma_reg__conf__src_max_llen__in_t;
+
+    typedef struct {
+        logic [2:0] next;
+    } idma_reg__conf__dst_max_llen__in_t;
+
+    typedef struct {
+        logic next;
+    } idma_reg__conf__enable_nd__in_t;
+
+    typedef struct {
+        logic [2:0] next;
+    } idma_reg__conf__src_protocol__in_t;
+
+    typedef struct {
+        logic [2:0] next;
+    } idma_reg__conf__dst_protocol__in_t;
+
+    typedef struct {
+        idma_reg__conf__decouple_aw__in_t decouple_aw;
+        idma_reg__conf__decouple_rw__in_t decouple_rw;
+        idma_reg__conf__src_reduce_len__in_t src_reduce_len;
+        idma_reg__conf__dst_reduce_len__in_t dst_reduce_len;
+        idma_reg__conf__src_max_llen__in_t src_max_llen;
+        idma_reg__conf__dst_max_llen__in_t dst_max_llen;
+        idma_reg__conf__enable_nd__in_t enable_nd;
+        idma_reg__conf__src_protocol__in_t src_protocol;
+        idma_reg__conf__dst_protocol__in_t dst_protocol;
+    } idma_reg__conf__in_t;
+
     typedef struct packed {
         logic [21:0] _reserved_31_10;
         logic [9:0] busy;
@@ -19,6 +67,7 @@ package idma_reg_apb_pkg;
     typedef struct {
         logic rd_ack;
         idma_reg__status__external__fields__in_t rd_data;
+        logic wr_ack;
     } idma_reg__status__external__in_t;
 
     typedef struct packed {
@@ -28,6 +77,7 @@ package idma_reg_apb_pkg;
     typedef struct {
         logic rd_ack;
         idma_reg__next_id__external__fields__in_t rd_data;
+        logic wr_ack;
     } idma_reg__next_id__external__in_t;
 
     typedef struct packed {
@@ -37,12 +87,72 @@ package idma_reg_apb_pkg;
     typedef struct {
         logic rd_ack;
         idma_reg__done_id__external__fields__in_t rd_data;
+        logic wr_ack;
     } idma_reg__done_id__external__in_t;
 
     typedef struct {
+        logic [31:0] next;
+    } idma_reg__dst_addr__dst_addr__in_t;
+
+    typedef struct {
+        idma_reg__dst_addr__dst_addr__in_t dst_addr;
+    } idma_reg__dst_addr__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } idma_reg__src_addr__src_addr__in_t;
+
+    typedef struct {
+        idma_reg__src_addr__src_addr__in_t src_addr;
+    } idma_reg__src_addr__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } idma_reg__length__length__in_t;
+
+    typedef struct {
+        idma_reg__length__length__in_t length;
+    } idma_reg__length__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } idma_reg__dst_stride__dst_stride__in_t;
+
+    typedef struct {
+        idma_reg__dst_stride__dst_stride__in_t dst_stride;
+    } idma_reg__dst_stride__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } idma_reg__src_stride__src_stride__in_t;
+
+    typedef struct {
+        idma_reg__src_stride__src_stride__in_t src_stride;
+    } idma_reg__src_stride__in_t;
+
+    typedef struct {
+        logic [31:0] next;
+    } idma_reg__reps__reps__in_t;
+
+    typedef struct {
+        idma_reg__reps__reps__in_t reps;
+    } idma_reg__reps__in_t;
+
+    typedef struct {
+        idma_reg__dst_stride__in_t dst_stride[1];
+        idma_reg__src_stride__in_t src_stride[1];
+        idma_reg__reps__in_t reps[1];
+    } idma_reg__dim__in_t;
+
+    typedef struct {
+        idma_reg__conf__in_t conf;
         idma_reg__status__external__in_t status[16];
         idma_reg__next_id__external__in_t next_id[16];
         idma_reg__done_id__external__in_t done_id[16];
+        idma_reg__dst_addr__in_t dst_addr[1];
+        idma_reg__src_addr__in_t src_addr[1];
+        idma_reg__length__in_t length[1];
+        idma_reg__dim__in_t dim[1];
     } idma_reg__in_t;
 
     typedef struct {
@@ -93,19 +203,38 @@ package idma_reg_apb_pkg;
         idma_reg__conf__dst_protocol__out_t dst_protocol;
     } idma_reg__conf__out_t;
 
+    typedef struct packed {
+        logic [21:0] _reserved_31_10;
+        logic [9:0] busy;
+    } idma_reg__status__external__fields__out_t;
+
     typedef struct {
         logic req;
         logic req_is_wr;
+        idma_reg__status__external__fields__out_t wr_data;
+        idma_reg__status__external__fields__out_t wr_biten;
     } idma_reg__status__external__out_t;
 
-    typedef struct {
-        logic req;
-        logic req_is_wr;
-    } idma_reg__next_id__external__out_t;
+    typedef struct packed {
+        logic [31:0] next_id;
+    } idma_reg__next_id__external__fields__out_t;
 
     typedef struct {
         logic req;
         logic req_is_wr;
+        idma_reg__next_id__external__fields__out_t wr_data;
+        idma_reg__next_id__external__fields__out_t wr_biten;
+    } idma_reg__next_id__external__out_t;
+
+    typedef struct packed {
+        logic [31:0] done_id;
+    } idma_reg__done_id__external__fields__out_t;
+
+    typedef struct {
+        logic req;
+        logic req_is_wr;
+        idma_reg__done_id__external__fields__out_t wr_data;
+        idma_reg__done_id__external__fields__out_t wr_biten;
     } idma_reg__done_id__external__out_t;
 
     typedef struct {
