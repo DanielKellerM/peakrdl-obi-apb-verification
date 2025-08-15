@@ -43,60 +43,85 @@ module idma_reg_obi (
     // OBI Interface Implementation
     // This register block acts as an OBI subordinate
 
-    // OBI to CPUIF conversion logic
-    logic is_active;
+    localparam int unsigned DATA_WIDTH = idma_reg_obi_pkg::IDMA_REG_OBI_DATA_WIDTH;
+    localparam int unsigned BYTES      = DATA_WIDTH/8;
+
+    // State & holding regs
+    logic is_active;            // A request is being served (not yet fully responded)
+    logic gnt_q;                // one-cycle grant for A-channel
+    logic rsp_pending;          // response ready but not yet accepted by manager
+    logic [DATA_WIDTH-1:0] rsp_rdata_q;
+    logic                      rsp_err_q;
+    logic [$bits(obi_aid)-1:0] rid_q;
+
+    // Latch AID on accept so we can echo it back with the response
     always_ff @(posedge clk or negedge arst_n) begin
-        if(~arst_n) begin
-            is_active <= '0;
-            cpuif_req <= '0;
-            cpuif_req_is_wr <= '0;
-            cpuif_addr <= '0;
-            cpuif_wr_data <= '0;
-            cpuif_wr_biten <= '0;
-        end else begin
-            if(~is_active) begin
-                // Wait for OBI request from external manager
-                if(obi_req) begin
-                    is_active <= '1;
-                    cpuif_req <= '1;
-                    cpuif_req_is_wr <= obi_we;
-                    cpuif_addr <= obi_addr;
-                    cpuif_wr_data <= obi_wdata;
-                    cpuif_wr_biten <= obi_be;
-                end
-            end else begin
-                cpuif_req <= '0;
-                if(cpuif_rd_ack || cpuif_wr_ack) begin
-                    is_active <= '0;
-                end
+      if (~arst_n) begin
+        is_active      <= 1'b0;
+        gnt_q          <= 1'b0;
+        rsp_pending    <= 1'b0;
+        rsp_rdata_q    <= '0;
+        rsp_err_q      <= 1'b0;
+        rid_q          <= '0;
+
+        cpuif_req        <= '0;
+        cpuif_req_is_wr  <= '0;
+        cpuif_addr       <= '0;
+        cpuif_wr_data    <= '0;
+        cpuif_wr_biten   <= '0;
+      end else begin
+        // defaults
+        cpuif_req <= 1'b0;
+        gnt_q     <= obi_req & ~is_active;
+
+        // Accept a new request when idle
+        if (~is_active) begin
+          if (obi_req) begin
+            is_active       <= 1'b1;
+            cpuif_req       <= 1'b1;
+            cpuif_req_is_wr <= obi_we;
+            cpuif_addr      <= obi_addr;
+            cpuif_wr_data   <= obi_wdata;
+            rid_q           <= obi_aid;
+            // expand byte enables into bit mask
+            for (int i = 0; i < BYTES; i++) begin
+              cpuif_wr_biten[i*8 +: 8] <= {8{ obi_be[i] }};
             end
+          end
         end
+
+        // When the internal regblock finishes, capture the response
+        if (is_active && (cpuif_rd_ack || cpuif_wr_ack)) begin
+          rsp_pending <= 1'b1;
+          rsp_rdata_q <= cpuif_rd_data;
+          rsp_err_q   <= cpuif_rd_err | cpuif_wr_err;
+          // NOTE: Keep 'is_active' asserted until the external R handshake completes
+        end
+
+        // Complete external R-channel handshake only when manager is ready
+        if (rsp_pending && obi_rvalid && obi_rready) begin
+          rsp_pending <= 1'b0;
+          is_active   <= 1'b0; // free to accept the next request
+        end
+      end
     end
 
-    // CPUIF interface assignments
-    always_comb begin
-        // Stall signals - stall when we can't accept new requests
-        cpuif_req_stall_wr = is_active;
-        cpuif_req_stall_rd = is_active;
+    // R-channel outputs (held stable while rsp_pending=1)
+    assign obi_rvalid = rsp_pending;
+    assign obi_rdata  = rsp_rdata_q;
+    assign obi_err    = rsp_err_q;
+    assign obi_rid    = rid_q;
 
-        // Read response
-        cpuif_rd_ack = obi_rvalid && is_active && !cpuif_req_is_wr;
-        cpuif_rd_err = obi_err && is_active && !cpuif_req_is_wr;
-        cpuif_rd_data = obi_rdata;
+    // A-channel grant (registered one-cycle pulse when we accept a request)
+    assign obi_gnt = gnt_q;
 
-        // Write response
-        cpuif_wr_ack = obi_rvalid && is_active && cpuif_req_is_wr && !obi_err;
-        cpuif_wr_err = obi_err && is_active && cpuif_req_is_wr;
-        
-        // OBI response signals - drive based on CPUIF responses
-        obi_rvalid = (cpuif_rd_ack || cpuif_wr_ack) && is_active;
-        obi_rdata = cpuif_rd_data;
-        obi_rid = obi_aid;
-        obi_err = (cpuif_rd_err || cpuif_wr_err) && is_active;
-        
-        // OBI grant signal - always grant requests when not active
-        obi_gnt = obi_req && ~is_active;
-    end
+    // If your OBI config disables RReady, tie it high in the top-level/TB; this logic still works.
+    // If you want synthesis-time checking, you can add:
+    // `ifndef SYNTHESIS
+    //   initial begin
+    //     if (0) $display("RReady supported; tie high if unused.");
+    //   end
+    // `endif
 
     logic cpuif_req_masked;
     logic external_req;
