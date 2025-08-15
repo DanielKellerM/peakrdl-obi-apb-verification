@@ -16,9 +16,6 @@
 // Include OBI typedefs
 `include "obi/include/obi/typedef.svh"
 
-// Define APB structs using the typedef macros
-`APB_TYPEDEF_ALL(apb, logic [7:0], logic [31:0], logic [3:0])
-
 package obi_tb_types_pkg;
   `OBI_TYPEDEF_MINIMAL_A_OPTIONAL(obi_a_optional_t)
   `OBI_TYPEDEF_MINIMAL_R_OPTIONAL(obi_r_optional_t)
@@ -153,6 +150,9 @@ module tb_idma_reg_obi_vs_apb;
         .rst_ni(rst_n)
     );
 
+    // Define APB structs using the typedef macros
+    `APB_TYPEDEF_ALL(apb, logic [7:0], logic [31:0], logic [3:0])
+
     // APB interface signals for register block
     logic apb_psel;
     logic apb_penable;
@@ -184,8 +184,8 @@ module tb_idma_reg_obi_vs_apb;
     ) u_obi_to_apb (
         .clk_i(clk),
         .rst_ni(rst_n),
-        .obi_req_i(obi_req),
-        .obi_rsp_o(obi_rsp),
+        .obi_req_i(obi_drv.obi_req),
+        .obi_rsp_o(obi_drv.obi_rsp),
         .apb_req_o(apb_req),
         .apb_rsp_i(apb_rsp)
     );
@@ -226,6 +226,79 @@ module tb_idma_reg_obi_vs_apb;
     logic [7:0] test_addr;
     int test_count = 0;
     int error_count = 0;
+    logic [31:0] conf_mask;
+    logic [31:0] expected_conf;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        for (int i = 0; i < 16; i++) begin
+        hwif_in_apb.status[i].rd_ack <= 1'b0;
+        hwif_in_apb.status[i].wr_ack <= 1'b0;
+        // provide some status data
+        hwif_in_apb.status[i].rd_data <= '{default:'0};
+        hwif_in_apb.next_id[i].rd_ack <= 1'b0;
+        hwif_in_apb.next_id[i].wr_ack <= 1'b0;
+        hwif_in_apb.next_id[i].rd_data<= '{default:'0};
+        hwif_in_apb.done_id[i].rd_ack <= 1'b0;
+        hwif_in_apb.done_id[i].wr_ack <= 1'b0;
+        hwif_in_apb.done_id[i].rd_data<= '{default:'0};
+        end
+    end else begin
+        for (int i = 0; i < 16; i++) begin
+        // READ handshake
+        if (hwif_out_apb.status[i].req && !hwif_out_apb.status[i].req_is_wr) begin
+            hwif_in_apb.status[i].rd_ack  <= 1'b1;           // 1-cycle pulse
+            hwif_in_apb.status[i].rd_data <= '{default:'0};  // your value
+        end else begin
+            hwif_in_apb.status[i].rd_ack  <= 1'b0;
+        end
+
+        // WRITE handshake (ack write data)
+        if (hwif_out_apb.status[i].req && hwif_out_apb.status[i].req_is_wr) begin
+            // consume hwif_out_apb.status[i].wr_data here if that field supports writes
+            hwif_in_apb.status[i].wr_ack <= 1'b1;
+        end else begin
+            hwif_in_apb.status[i].wr_ack <= 1'b0;
+        end
+
+        if (hwif_out_apb.next_id[i].req && !hwif_out_apb.next_id[i].req_is_wr) begin
+            hwif_in_apb.next_id[i].rd_ack <= 1'b1;
+            hwif_in_apb.next_id[i].rd_data <= '{default:'0};
+        end else begin
+            hwif_in_apb.next_id[i].rd_ack <= 1'b0;
+        end
+
+        if (hwif_out_apb.done_id[i].req && !hwif_out_apb.done_id[i].req_is_wr) begin
+            hwif_in_apb.done_id[i].rd_ack <= 1'b1;
+            hwif_in_apb.done_id[i].rd_data <= '{default:'0};
+        end else begin
+            hwif_in_apb.done_id[i].rd_ack <= 1'b0;
+        end
+        end
+    end
+    end
+
+    // Hold-behavior loopback: drive all .next from .value
+    // CONF
+    assign hwif_in_apb.conf.decouple_aw.next   = hwif_out_apb.conf.decouple_aw.value;
+    assign hwif_in_apb.conf.decouple_rw.next   = hwif_out_apb.conf.decouple_rw.value;
+    assign hwif_in_apb.conf.src_reduce_len.next= hwif_out_apb.conf.src_reduce_len.value;
+    assign hwif_in_apb.conf.dst_reduce_len.next= hwif_out_apb.conf.dst_reduce_len.value;
+    assign hwif_in_apb.conf.src_max_llen.next  = hwif_out_apb.conf.src_max_llen.value;
+    assign hwif_in_apb.conf.dst_max_llen.next  = hwif_out_apb.conf.dst_max_llen.value;
+    assign hwif_in_apb.conf.enable_nd.next     = hwif_out_apb.conf.enable_nd.value;
+    assign hwif_in_apb.conf.src_protocol.next  = hwif_out_apb.conf.src_protocol.value;
+    assign hwif_in_apb.conf.dst_protocol.next  = hwif_out_apb.conf.dst_protocol.value;
+
+    // SCALAR REGS
+    assign hwif_in_apb.dst_addr[0].dst_addr.next = hwif_out_apb.dst_addr[0].dst_addr.value;
+    assign hwif_in_apb.src_addr[0].src_addr.next = hwif_out_apb.src_addr[0].src_addr.value;
+    assign hwif_in_apb.length [0].length .next   = hwif_out_apb.length [0].length .value;
+
+    // DIM REGS
+    assign hwif_in_apb.dim[0].dst_stride[0].dst_stride.next = hwif_out_apb.dim[0].dst_stride[0].dst_stride.value;
+    assign hwif_in_apb.dim[0].src_stride[0].src_stride.next = hwif_out_apb.dim[0].src_stride[0].src_stride.value;
+    assign hwif_in_apb.dim[0].reps      [0].reps      .next = hwif_out_apb.dim[0].reps      [0].reps      .value;
 
     // Test stimulus
     initial begin
@@ -234,47 +307,8 @@ module tb_idma_reg_obi_vs_apb;
         wait(rst_n);
         #50;
 
-        // Initialize hardware interface signals to zero (simplified)
-        hwif_in_apb.conf.decouple_aw.next = 1'b0;
-        hwif_in_apb.conf.decouple_rw.next = 1'b0;
-        hwif_in_apb.conf.src_reduce_len.next = 1'b0;
-        hwif_in_apb.conf.dst_reduce_len.next = 1'b0;
-        hwif_in_apb.conf.src_max_llen.next = 3'b0;
-        hwif_in_apb.conf.dst_max_llen.next = 3'b0;
-        hwif_in_apb.conf.enable_nd.next = 1'b0;
-        hwif_in_apb.conf.src_protocol.next = 3'b0;
-        hwif_in_apb.conf.dst_protocol.next = 3'b0;
-        
-        // Initialize arrays to zero
-        for (int i = 0; i < 16; i++) begin
-            hwif_in_apb.status[i].rd_ack = 1'b0;
-            hwif_in_apb.status[i].wr_ack = 1'b0;
-            hwif_in_apb.status[i].rd_data = '{22'b0, 10'b0};
-        end
-        
-        for (int i = 0; i < 16; i++) begin
-            hwif_in_apb.next_id[i].rd_ack = 1'b0;
-            hwif_in_apb.next_id[i].wr_ack = 1'b0;
-            hwif_in_apb.next_id[i].rd_data = '{32'b0};
-        end
-        
-        for (int i = 0; i < 16; i++) begin
-            hwif_in_apb.done_id[i].rd_ack = 1'b0;
-            hwif_in_apb.done_id[i].wr_ack = 1'b0;
-            hwif_in_apb.done_id[i].rd_data = '{32'b0};
-        end
-        
-        for (int i = 0; i < 1; i++) begin
-            hwif_in_apb.dst_addr[i].dst_addr.next = 32'b0;
-            hwif_in_apb.src_addr[i].src_addr.next = 32'b0;
-            hwif_in_apb.length[i].length.next = 32'b0;
-            hwif_in_apb.dim[i].dst_stride[0].dst_stride.next = 32'b0;
-            hwif_in_apb.dim[i].src_stride[0].src_stride.next = 32'b0;
-            hwif_in_apb.dim[i].reps[0].reps.next = 32'b0;
-        end
-
         // Test 1: Write to configuration register through OBI-to-APB bridge
-        test_addr = 8'h00;
+        test_addr = 8'h00;  // Configuration register at word address 0x00
         
         $display("Test %0d: Writing 0xA5A5A5A5 to address 0x%02x through OBI-to-APB bridge", test_count++, test_addr);
         
@@ -287,7 +321,9 @@ module tb_idma_reg_obi_vs_apb;
         obi_drv.read(test_addr, test_data_read);
         $display("Read back: 0x%08x", test_data_read);
         
-        if (test_data_read !== 32'hA5A5A5A5) begin
+        conf_mask = 32'h0001_FFFF;
+        expected_conf = 32'hA5A5A5A5 & conf_mask;
+        if (test_data_read !== expected_conf) begin
             $error("Mismatch in configuration register readback");
             error_count++;
         end
@@ -344,7 +380,7 @@ module tb_idma_reg_obi_vs_apb;
         end
         
         // Test 5: Test byte enables (partial write)
-        test_addr = 8'h00;
+        test_addr = 8'h00;  // Back to configuration register
         
         $display("Test %0d: Partial write to address 0x%02x (byte enables 0x3)", test_count++, test_addr);
         
@@ -357,7 +393,9 @@ module tb_idma_reg_obi_vs_apb;
         $display("Read back after partial write: 0x%08x", test_data_read);
         
         // Expected: 0xA5A5BEEF (upper bytes unchanged, lower bytes written)
-        if (test_data_read !== 32'hA5A5BEEF) begin
+        conf_mask = 32'h0001_FFFF;
+        expected_conf = 32'hA5A5BEEF & conf_mask;
+        if (test_data_read !== expected_conf) begin
             $error("Mismatch in partial write test");
             error_count++;
         end
