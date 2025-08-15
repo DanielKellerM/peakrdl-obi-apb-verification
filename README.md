@@ -25,7 +25,10 @@ The main focus is on an iDMA (intelligent Direct Memory Access) register block, 
 ├── tb_idma_reg_obi_vs_apb.sv # Testbench comparing both implementations
 ├── Makefile                 # Build and simulation automation
 ├── requirements.txt         # Python dependencies
-└── common_cells/           # Common SystemVerilog utilities
+├── .gitmodules             # Git submodule configuration
+├── obi/                    # OBI protocol implementation (submodule)
+├── apb/                    # APB protocol implementation (submodule)
+├── common_cells/           # Common SystemVerilog utilities (submodule)
 ```
 
 ## Features
@@ -48,6 +51,7 @@ The main focus is on an iDMA (intelligent Direct Memory Access) register block, 
 ## Prerequisites
 
 ### Required Tools
+- **Git**: For cloning and managing submodules
 - **ModelSim/QuestaSim**: For SystemVerilog simulation
 - **Python 3.7+**: For PeakRDL tools
 - **Make**: For build automation
@@ -63,7 +67,17 @@ The requirements include:
 
 ## Quick Start
 
-### 1. Setup Environment
+### 1. Clone Repository with Submodules
+```bash
+# Clone the repository with all submodules
+git clone --recursive https://github.com/danielkellerm/systemrdl.git
+cd systemrdl
+
+# Or if you already cloned without --recursive, initialize submodules
+git submodule update --init --recursive
+```
+
+### 2. Setup Environment
 ```bash
 # Install Python dependencies
 pip install -r requirements.txt
@@ -74,14 +88,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Generate Register Blocks
+### 3. Generate Register Blocks
 ```bash
 make generate-regblocks
 ```
 
 This will generate both OBI and APB register block implementations from the SystemRDL specification.
 
-### 3. Run Verification
+### 4. Run Verification
 ```bash
 # Compile and run simulation
 make sim
@@ -123,9 +137,27 @@ This project is licensed under the Solderpad Hardware License, Version 0.51. See
 - **PeakRDL Team**: SystemRDL processing tools
 - **ETH Zurich, University of Bologna and OpenHW Group**: OBI protocol specification
 
+## Dependencies
+
+This project uses the following git submodules:
+
+- **[obi](https://github.com/pulp-platform/obi)**: OBI (Open Bus Interface) protocol implementation
+- **[apb](https://github.com/pulp-platform/apb)**: APB (Advanced Peripheral Bus) protocol implementation  
+- **[common_cells](https://github.com/pulp-platform/common_cells)**: Common SystemVerilog utilities and components
+
+### Managing Submodules
+
+```bash
+# Update all submodules to their latest versions
+git submodule update --remote
+
+# Update a specific submodule
+git submodule update --remote obi
+
+# Initialize submodules after cloning
+git submodule update --init --recursive
+```
+
 ## Related Projects
 
-- [PeakRDL-regblock](https://github.com/DanielKellerM/PeakRDL-regblock): Register block generator with OBI support
-- [common_cells](https://github.com/pulp-platform/common_cells): Common SystemVerilog utilities
-- [apb](https://github.com/pulp-platform/apb): APB protocol implementation
-- [obi](https://github.com/pulp-platform/obi): OBI protocol implementation
+- [PeakRDL](https://github.com/SystemRDL/PeakRDL): SystemRDL parser and processing tools
